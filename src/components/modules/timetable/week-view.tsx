@@ -33,7 +33,7 @@ export function WeekView({
   const bodyHeight = (GRID_END_HOUR - GRID_START_HOUR) * HOUR_PX;
 
   return (
-    <div className="overflow-x-auto rounded-xl border">
+    <div className="bg-surface overflow-x-auto rounded-[var(--r-lg)] border">
       <div className="flex min-w-[720px]">
         <div className="w-14 shrink-0">
           <div className="h-10 border-b" />
@@ -41,7 +41,7 @@ export function WeekView({
             {hours.map((h, i) => (
               <div
                 key={h}
-                className="text-muted-foreground absolute right-1 -translate-y-1/2 text-[11px]"
+                className="text-fg-3 absolute right-1 -translate-y-1/2 font-mono text-[11px]"
                 style={{ top: i * HOUR_PX }}
               >
                 {String(h).padStart(2, "0")}:00
@@ -54,14 +54,14 @@ export function WeekView({
           const dayEvents = events.filter((e) => dayColumn(e) === dayIdx);
           return (
             <div key={day} className="flex-1 border-l">
-              <div className="flex h-10 items-center justify-center border-b text-xs font-medium">
+              <div className="text-fg-3 flex h-10 items-center justify-center border-b font-mono text-xs font-medium uppercase tracking-[0.04em]">
                 {day.slice(0, 3)}
               </div>
               <div className="relative" style={{ height: bodyHeight }}>
                 {hours.slice(1).map((h, i) => (
                   <div
                     key={h}
-                    className="border-border/50 absolute inset-x-0 border-t"
+                    className="absolute inset-x-0 border-t border-[var(--border)]"
                     style={{ top: (i + 1) * HOUR_PX }}
                   />
                 ))}

@@ -8,8 +8,8 @@ export default async function TimetablePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-2xl font-semibold tracking-tight">Timetable</h2>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <h2 className="text-[22px] font-semibold tracking-[-0.01em]">Timetable</h2>
+        <p className="text-fg-2 mt-1 text-sm">
           Your weekly lectures and shifts.
         </p>
       </div>
