@@ -6,7 +6,12 @@ config({ path: ".env.local" });
 
 import { PrismaClient } from "../src/generated/prisma/client";
 import { PrismaNeon } from "@prisma/adapter-neon";
+import { neonConfig } from "@neondatabase/serverless";
+import ws from "ws";
 import { typeColor } from "../src/lib/timetable";
+
+// Neon needs an explicit WebSocket constructor on Node runtimes for writes.
+neonConfig.webSocketConstructor = ws;
 
 // The single user this app belongs to. Sign in once with Google before
 // running this script so the user row exists.
