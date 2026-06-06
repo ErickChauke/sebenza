@@ -13,6 +13,9 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Migrations run over a direct (unpooled) connection when DIRECT_URL is set,
+    // since the Neon pooler does not support the DDL/advisory locks migrate uses.
+    // Falls back to DATABASE_URL locally where no separate direct URL is needed.
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });

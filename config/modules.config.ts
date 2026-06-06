@@ -20,9 +20,9 @@ export const modules: ModuleConfig[] = [
   { id: "dashboard", label: "Dashboard", href: "/dashboard", icon: "dashboard", group: "Daily", enabled: true },
   { id: "timetable", label: "Timetable", href: "/timetable", icon: "calendar", group: "Daily", enabled: true },
   { id: "habits", label: "Habits", href: "/habits", icon: "habits", group: "Daily", enabled: false },
-  { id: "journal", label: "Journal", href: "/journal", icon: "journal", group: "Daily", enabled: false },
+  { id: "journal", label: "Journal", href: "/journal", icon: "journal", group: "Daily", enabled: true },
   // Records
-  { id: "notes", label: "Notes", href: "/notes", icon: "notes", group: "Records", enabled: false },
+  { id: "notes", label: "Notes", href: "/notes", icon: "notes", group: "Records", enabled: true },
   { id: "money", label: "Money", href: "/money", icon: "money", group: "Records", enabled: false },
   { id: "health", label: "Health", href: "/health", icon: "health", group: "Records", enabled: false },
   { id: "literature", label: "Literature", href: "/literature", icon: "literature", group: "Records", enabled: false },
