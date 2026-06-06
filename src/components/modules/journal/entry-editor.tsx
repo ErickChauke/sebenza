@@ -1,0 +1,79 @@
+"use client";
+
+import { useState, useTransition } from "react";
+import { format, parseISO } from "date-fns";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { MOOD_DEFAULT, type EntryInput } from "@/lib/journal";
+import { createEntry, updateEntry } from "@/actions/journal";
+import { MoodSlider } from "./mood-slider";
+import type { Entry } from "./journal-board";
+
+// Editor for the selected day. One entry per day: a day with no entry opens
+// blank with the mood at the neutral default; saving creates or updates it.
+export function EntryEditor({
+  day,
+  entry,
+}: {
+  day: string;
+  entry: Entry | null;
+}) {
+  const exists = entry !== null;
+  const [title, setTitle] = useState(entry?.title ?? "");
+  const [body, setBody] = useState(entry?.body ?? "");
+  const [mood, setMood] = useState(entry?.mood ?? MOOD_DEFAULT);
+  const [pending, startTransition] = useTransition();
+
+  function onSave() {
+    const values: EntryInput = {
+      date: day,
+      title: title.trim() || null,
+      body,
+      mood,
+    };
+    startTransition(async () => {
+      try {
+        if (exists) await updateEntry(values);
+        else await createEntry(values);
+        toast.success(exists ? "Entry updated" : "Entry saved");
+      } catch {
+        toast.error("Something went wrong");
+      }
+    });
+  }
+
+  return (
+    <div className="mx-auto max-w-[720px] space-y-5">
+      <div>
+        <p className="text-fg-3 font-mono text-[10px] uppercase tracking-wider">
+          Daily · Journal
+        </p>
+        <p className="text-fg-2 mt-1 font-mono text-lg">
+          {format(parseISO(day), "EEE · MMM d yyyy")}
+        </p>
+      </div>
+
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Give the day a title…"
+        className="placeholder:text-fg-4 w-full bg-transparent text-2xl font-semibold outline-none"
+      />
+
+      <MoodSlider value={mood} onChange={setMood} />
+
+      <textarea
+        value={body}
+        onChange={(e) => setBody(e.target.value)}
+        placeholder="How was today? A line or two is enough."
+        className="bg-surface-2 placeholder:text-fg-4 min-h-[280px] w-full rounded-md border border-border p-4 text-[15px] leading-relaxed outline-none focus-visible:border-accent-line"
+      />
+
+      <div className="flex justify-end pt-1">
+        <Button onClick={onSave} disabled={pending}>
+          {exists ? "Update" : "Save"}
+        </Button>
+      </div>
+    </div>
+  );
+}
