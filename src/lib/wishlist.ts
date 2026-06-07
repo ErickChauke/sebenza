@@ -17,13 +17,21 @@ export function priorityRank(priority: string): number {
   return i === -1 ? PRIORITIES.length : i;
 }
 
-// Shared validation for the wish form and the server actions. Price is entered
-// in rand and converted to cents in the action.
+// Shared validation for the new-collection modal. A collection carries the
+// category; its wishes inherit it.
+export const collectionSchema = z.object({
+  title: z.string().min(1, "Name the collection"),
+  category: z.string().min(1, "Pick a category"),
+});
+
+export type CollectionInput = z.infer<typeof collectionSchema>;
+
+// Shared validation for the wish form. Price is entered in rand and converted to
+// cents in the action; the category comes from the parent collection.
 export const wishlistSchema = z.object({
   name: z.string().min(1, "Name the wish"),
   price: z.number().min(0, "Price cannot be negative"),
   priority: z.enum(PRIORITY_VALUES),
-  category: z.string().min(1, "Pick a category"),
   note: z.string().nullable(),
 });
 

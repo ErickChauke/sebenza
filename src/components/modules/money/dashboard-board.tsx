@@ -35,13 +35,13 @@ import { SpendingDonut } from "./spending-donut";
 import { IncomeExpenseBar } from "./income-expense-bar";
 import type { getTransactions } from "@/actions/money";
 import type { getGoals } from "@/actions/goals";
-import type { getShoppingItems } from "@/actions/shopping";
-import type { getWishes } from "@/actions/wishlist";
+import type { getShoppingLists } from "@/actions/shopping";
+import type { getCollections } from "@/actions/wishlist";
 
 type Transaction = Awaited<ReturnType<typeof getTransactions>>[number];
 type Goal = Awaited<ReturnType<typeof getGoals>>[number];
-type ShoppingItem = Awaited<ReturnType<typeof getShoppingItems>>[number];
-type Wish = Awaited<ReturnType<typeof getWishes>>[number];
+type ShoppingListData = Awaited<ReturnType<typeof getShoppingLists>>[number];
+type CollectionData = Awaited<ReturnType<typeof getCollections>>[number];
 
 const SCALES = [
   { value: "month", label: "Month" },
@@ -58,13 +58,13 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
 export function DashboardBoard({
   transactions,
   goals,
-  shopping,
-  wishes,
+  shoppingLists,
+  collections,
 }: {
   transactions: Transaction[];
   goals: Goal[];
-  shopping: ShoppingItem[];
-  wishes: Wish[];
+  shoppingLists: ShoppingListData[];
+  collections: CollectionData[];
 }) {
   const router = useRouter();
   const [scale, setScale] = useState<Scale>("month");
@@ -151,7 +151,7 @@ export function DashboardBoard({
         </Card>
       </div>
 
-      <PlanningHub shopping={shopping} wishes={wishes} />
+      <PlanningHub shoppingLists={shoppingLists} collections={collections} />
 
       <GoalStrip goals={goals} />
     </div>
@@ -254,14 +254,15 @@ function Expectations({ transactions, period }: { transactions: Transaction[]; p
 }
 
 function PlanningHub({
-  shopping,
-  wishes,
+  shoppingLists,
+  collections,
 }: {
-  shopping: ShoppingItem[];
-  wishes: Wish[];
+  shoppingLists: ShoppingListData[];
+  collections: CollectionData[];
 }) {
-  const toBuy = shopping.filter((i) => !i.bought);
+  const toBuy = shoppingLists.flatMap((l) => l.items.filter((i) => !i.bought));
   const shopEstimate = toBuy.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const wishes = collections.flatMap((c) => c.items);
   const wishWorth = wishes.reduce((sum, w) => sum + w.price, 0);
 
   const cards = [

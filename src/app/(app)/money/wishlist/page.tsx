@@ -1,10 +1,10 @@
-import { getWishes } from "@/actions/wishlist";
+import { getCollections } from "@/actions/wishlist";
 import { getGoals } from "@/actions/goals";
-import { WishlistBoard } from "@/components/modules/money/wishlist-board";
+import { WishlistOverview } from "@/components/modules/money/wishlist-overview";
 
-// Wishlist page. Goals are passed in so each card can show whether it is already
-// being saved for (linked by name).
+// Wishlist collections overview. Goals are passed so cards can flag how many of
+// a collection's wishes are already being saved for.
 export default async function WishlistPage() {
-  const [wishes, goals] = await Promise.all([getWishes(), getGoals()]);
-  return <WishlistBoard wishes={wishes} goals={goals} />;
+  const [collections, goals] = await Promise.all([getCollections(), getGoals()]);
+  return <WishlistOverview collections={collections} goals={goals} />;
 }
