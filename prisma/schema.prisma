@@ -23,7 +23,9 @@ model User {
   dailyEntries    DailyEntry[]
   transactions    Transaction[]
   savingsGoals    SavingsGoal[]
+  shoppingLists   ShoppingList[]
   shoppingItems   ShoppingItem[]
+  wishlistCollections WishlistCollection[]
   wishlistItems   WishlistItem[]
   createdAt       DateTime         @default(now())
 }
@@ -100,34 +102,62 @@ model SavingsGoal {
   updatedAt     DateTime @updatedAt
 }
 
-// A planned purchase. price is the estimated unit price in cents; the basket is
-// logged to the transaction log as one expense per category.
-model ShoppingItem {
-  id        String   @id @default(cuid())
+// A titled shopping list scoped to one category (e.g. "Checkers run" / Groceries).
+// Its basket is logged to the transaction log as one expense in this category.
+model ShoppingList {
+  id        String         @id @default(cuid())
   userId    String
-  name      String
-  price     Int      @default(0)
+  title     String
   category  String
-  quantity  Int      @default(1)
-  bought    Boolean  @default(false)
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  items     ShoppingItem[]
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
 }
 
-// Something to buy someday. price in cents; priority is "high"/"medium"/"low".
+// A planned purchase inside a list. price is the estimated unit price in cents;
+// the category is inherited from the parent list.
+model ShoppingItem {
+  id        String       @id @default(cuid())
+  userId    String
+  listId    String
+  name      String
+  price     Int          @default(0)
+  quantity  Int          @default(1)
+  bought    Boolean      @default(false)
+  list      ShoppingList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+}
+
+// A titled wishlist collection scoped to one category (e.g. "Photography kit").
+model WishlistCollection {
+  id        String         @id @default(cuid())
+  userId    String
+  title     String
+  category  String
+  items     WishlistItem[]
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+}
+
+// Something to buy someday, inside a collection. price in cents; priority is
+// "high"/"medium"/"low"; the category is inherited from the parent collection.
 // One tap turns it into a savings goal (linked by name).
 model WishlistItem {
-  id        String   @id @default(cuid())
-  userId    String
-  name      String
-  price     Int      @default(0)
-  priority  String   @default("medium")
-  category  String
-  note      String?
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String             @id @default(cuid())
+  userId       String
+  collectionId String
+  name         String
+  price        Int                @default(0)
+  priority     String             @default("medium")
+  note         String?
+  collection   WishlistCollection @relation(fields: [collectionId], references: [id], onDelete: Cascade)
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
 }
 
 model Account {
