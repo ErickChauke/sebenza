@@ -1,8 +1,8 @@
-import { getShoppingItems } from "@/actions/shopping";
-import { ShoppingBoard } from "@/components/modules/money/shopping-board";
+import { getShoppingLists } from "@/actions/shopping";
+import { ShoppingOverview } from "@/components/modules/money/shopping-overview";
 
-// Shopping list page.
+// Shopping lists overview.
 export default async function ShoppingPage() {
-  const items = await getShoppingItems();
-  return <ShoppingBoard items={items} />;
+  const lists = await getShoppingLists();
+  return <ShoppingOverview lists={lists} />;
 }

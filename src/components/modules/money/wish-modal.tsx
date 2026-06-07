@@ -13,29 +13,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select } from "@/components/ui/select";
 import { Segmented } from "./segmented";
 import { wishlistSchema, PRIORITIES, type WishlistInput } from "@/lib/wishlist";
-import { SPENDING_CATEGORIES } from "@/lib/shopping";
 import { centsToRand } from "@/lib/money";
 import { createWish, updateWish, deleteWish } from "@/actions/wishlist";
-import type { Wish } from "./wishlist-board";
+import type { Wish } from "./collection-detail";
 
 const EMPTY: WishlistInput = {
   name: "",
   price: 0,
   priority: "medium",
-  category: SPENDING_CATEGORIES[0].value,
   note: null,
 };
 
 export function WishModal({
   open,
   onOpenChange,
+  collectionId,
   wish,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  collectionId: string;
   wish: Wish | null;
 }) {
   const [pending, startTransition] = useTransition();
@@ -61,7 +60,6 @@ export function WishModal({
         name: wish.name,
         price: centsToRand(wish.price),
         priority: wish.priority as WishlistInput["priority"],
-        category: wish.category,
         note: wish.note,
       });
     } else {
@@ -73,7 +71,7 @@ export function WishModal({
     startTransition(async () => {
       try {
         if (wish) await updateWish(wish.id, values);
-        else await createWish(values);
+        else await createWish(collectionId, values);
         toast.success(wish ? "Wish updated" : "Wish added");
         onOpenChange(false);
       } catch {
@@ -109,7 +107,7 @@ export function WishModal({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
           <div className="space-y-1.5">
             <Label htmlFor="name">What is it</Label>
-            <Input id="name" placeholder="e.g. Standing desk" {...register("name")} />
+            <Input id="name" placeholder="e.g. Standing desk" autoFocus {...register("name")} />
             {errors.name ? (
               <p className="text-destructive text-xs">{errors.name.message}</p>
             ) : null}
@@ -142,17 +140,6 @@ export function WishModal({
               value={priority}
               onChange={(v) => setValue("priority", v)}
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="category">Category</Label>
-            <Select id="category" {...register("category")}>
-              {SPENDING_CATEGORIES.map((c) => (
-                <option key={c.value} value={c.value}>
-                  {c.value}
-                </option>
-              ))}
-            </Select>
           </div>
 
           <div className="space-y-1.5">

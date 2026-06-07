@@ -1,48 +1,47 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Check, Plus, Minus, ShoppingBag, X } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Check, Plus, Minus, ShoppingBag, X, ChevronLeft, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/select";
 import { cn, formatZAR } from "@/lib/utils";
 import { centsToRand } from "@/lib/money";
-import { SPENDING_CATEGORIES, shoppingSchema } from "@/lib/shopping";
-import { CategoryIcon } from "./category-icon";
-import { MoneyEmpty } from "./money-empty";
+import { shoppingItemSchema } from "@/lib/shopping";
 import {
   createShoppingItem,
   toggleBought,
   setQuantity,
   deleteShoppingItem,
-  logBasketAsExpense,
+  logListAsExpense,
+  renameShoppingList,
+  deleteShoppingList,
 } from "@/actions/shopping";
-import type { getShoppingItems } from "@/actions/shopping";
+import type { getShoppingList } from "@/actions/shopping";
 
-export type ShoppingItem = Awaited<ReturnType<typeof getShoppingItems>>[number];
+type ShoppingListDetail = NonNullable<Awaited<ReturnType<typeof getShoppingList>>>;
+type Item = ShoppingListDetail["items"][number];
 
-function lineTotalCents(item: ShoppingItem) {
-  return item.price * item.quantity;
-}
-
-export function ShoppingBoard({ items }: { items: ShoppingItem[] }) {
+export function ShoppingListDetailView({ list }: { list: ShoppingListDetail }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
-  const [category, setCategory] = useState<string>(SPENDING_CATEGORIES[0].value);
+  const [renaming, setRenaming] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(list.title);
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const toBuy = items.filter((i) => !i.bought);
-  const basket = items.filter((i) => i.bought);
-
-  const estimate = toBuy.reduce((sum, i) => sum + lineTotalCents(i), 0);
-  const basketTotal = basket.reduce((sum, i) => sum + lineTotalCents(i), 0);
+  const toBuy = list.items.filter((i) => !i.bought);
+  const basket = list.items.filter((i) => i.bought);
+  const estimate = toBuy.reduce((s, i) => s + i.price * i.quantity, 0);
+  const basketTotal = basket.reduce((s, i) => s + i.price * i.quantity, 0);
 
   function add() {
-    const parsed = shoppingSchema.safeParse({
+    const parsed = shoppingItemSchema.safeParse({
       name,
       price: price === "" ? 0 : Number(price),
-      category,
       quantity: 1,
     });
     if (!parsed.success) {
@@ -51,7 +50,7 @@ export function ShoppingBoard({ items }: { items: ShoppingItem[] }) {
     }
     startTransition(async () => {
       try {
-        await createShoppingItem(parsed.data);
+        await createShoppingItem(list.id, parsed.data);
         setName("");
         setPrice("");
       } catch {
@@ -70,10 +69,38 @@ export function ShoppingBoard({ items }: { items: ShoppingItem[] }) {
     });
   }
 
+  function saveRename() {
+    const clean = titleDraft.trim();
+    if (!clean) return;
+    startTransition(async () => {
+      try {
+        await renameShoppingList(list.id, clean);
+        setRenaming(false);
+      } catch {
+        toast.error("Could not rename the list");
+      }
+    });
+  }
+
+  function onDelete() {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await deleteShoppingList(list.id);
+        router.push("/money/shopping");
+      } catch {
+        toast.error("Could not delete the list");
+      }
+    });
+  }
+
   function logBasket() {
     startTransition(async () => {
       try {
-        await logBasketAsExpense();
+        await logListAsExpense(list.id);
         toast.success("Logged as expense");
       } catch {
         toast.error("Could not log the basket");
@@ -83,6 +110,67 @@ export function ShoppingBoard({ items }: { items: ShoppingItem[] }) {
 
   return (
     <div className="space-y-6 pb-24">
+      <Link
+        href="/money/shopping"
+        className="text-fg-3 hover:text-fg-2 inline-flex items-center gap-1 font-mono text-xs"
+      >
+        <ChevronLeft className="size-4" /> Shopping
+      </Link>
+
+      <div className="flex items-center justify-between gap-3">
+        {renaming ? (
+          <div className="flex flex-1 items-center gap-2">
+            <Input
+              value={titleDraft}
+              onChange={(e) => setTitleDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveRename();
+                if (e.key === "Escape") setRenaming(false);
+              }}
+              autoFocus
+              className="h-9 max-w-sm text-xl font-semibold"
+            />
+            <Button size="sm" onClick={saveRename} disabled={pending}>
+              Save
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setRenaming(false)}>
+              Cancel
+            </Button>
+          </div>
+        ) : (
+          <div className="flex min-w-0 items-center gap-3">
+            <h1 className="text-fg truncate text-2xl font-semibold">{list.title}</h1>
+            <span className="bg-surface-3 text-fg-2 shrink-0 rounded-full px-2 py-0.5 text-xs">
+              {list.category}
+            </span>
+          </div>
+        )}
+        {!renaming ? (
+          <div className="flex shrink-0 items-center gap-1">
+            <Button
+              size="icon-sm"
+              variant="ghost"
+              aria-label="Rename list"
+              onClick={() => {
+                setTitleDraft(list.title);
+                setRenaming(true);
+              }}
+            >
+              <Pencil className="text-fg-3 size-4" />
+            </Button>
+            <Button
+              size="sm"
+              variant={confirmDelete ? "destructive" : "ghost"}
+              aria-label="Delete list"
+              onClick={onDelete}
+              disabled={pending}
+            >
+              {confirmDelete ? "Delete list?" : <Trash2 className="text-fg-3 size-4" />}
+            </Button>
+          </div>
+        ) : null}
+      </div>
+
       <div className="flex items-baseline gap-3">
         <span className="text-fg-3 font-mono text-[10.5px] uppercase tracking-[0.10em]">
           Estimated
@@ -116,28 +204,13 @@ export function ShoppingBoard({ items }: { items: ShoppingItem[] }) {
             className="h-9 pl-7 font-mono"
           />
         </div>
-        <Select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          className="h-9 w-auto"
-        >
-          {SPENDING_CATEGORIES.map((c) => (
-            <option key={c.value} value={c.value}>
-              {c.value}
-            </option>
-          ))}
-        </Select>
         <Button onClick={add} disabled={pending}>
           <Plus /> Add
         </Button>
       </div>
 
-      {items.length === 0 ? (
-        <MoneyEmpty
-          eyebrow="Records · Money · Shopping"
-          message="Nothing on the list. Jot down what you need, see what it'll cost, then log the shop in one tap."
-          action={null}
-        />
+      {list.items.length === 0 ? (
+        <p className="text-fg-3 text-sm">Nothing on this list yet. Add the first thing you need.</p>
       ) : (
         <div className="space-y-5">
           {toBuy.length > 0 ? (
@@ -199,7 +272,7 @@ function ItemRow({
   onQty,
   onRemove,
 }: {
-  item: ShoppingItem;
+  item: Item;
   pending: boolean;
   onToggle: () => void;
   onQty: (quantity: number) => void;
@@ -221,7 +294,6 @@ function ItemRow({
       >
         {item.bought ? <Check className="size-3.5" /> : null}
       </button>
-      <CategoryIcon category={item.category} className="text-fg-3 size-4 shrink-0" />
       <span
         className={cn(
           "min-w-0 flex-1 truncate text-sm",
@@ -229,9 +301,6 @@ function ItemRow({
         )}
       >
         {item.name}
-      </span>
-      <span className="bg-surface-3 text-fg-2 hidden shrink-0 rounded-full px-2 py-0.5 text-xs sm:block">
-        {item.category}
       </span>
       <div className="flex shrink-0 items-center gap-1">
         <button
@@ -255,7 +324,7 @@ function ItemRow({
         </button>
       </div>
       <span className="text-fg w-24 shrink-0 text-right font-mono text-sm">
-        {formatZAR(centsToRand(lineTotalCents(item)))}
+        {formatZAR(centsToRand(item.price * item.quantity))}
       </span>
       <button
         type="button"
