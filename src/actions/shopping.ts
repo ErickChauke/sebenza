@@ -3,7 +3,12 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { auth } from "@/lib/auth";
-import { shoppingSchema, type ShoppingInput } from "@/lib/shopping";
+import {
+  shoppingListSchema,
+  shoppingItemSchema,
+  type ShoppingListInput,
+  type ShoppingItemInput,
+} from "@/lib/shopping";
 import { randToCents, dayToDate, dateToDay } from "@/lib/money";
 
 // Returns the current user id or throws when there is no session.
@@ -13,34 +18,75 @@ async function requireUserId(): Promise<string> {
   return session.user.id;
 }
 
-function revalidateMoney() {
+// Revalidates the overview, the dashboard hub, and (optionally) a list detail.
+function revalidateShopping(listId?: string) {
   revalidatePath("/money");
   revalidatePath("/money/shopping");
+  if (listId) revalidatePath(`/money/shopping/${listId}`);
 }
 
-// Fetches the current user's shopping items, oldest first (append order).
-export async function getShoppingItems() {
+// Fetches the user's shopping lists with their items, newest list first.
+export async function getShoppingLists() {
   const userId = await requireUserId();
-  return prisma.shoppingItem.findMany({
+  return prisma.shoppingList.findMany({
     where: { userId },
-    orderBy: { createdAt: "asc" },
+    orderBy: { createdAt: "desc" },
+    include: { items: { orderBy: { createdAt: "asc" } } },
   });
 }
 
-// Adds an item to the to-buy list. Price is converted from rand to cents.
-export async function createShoppingItem(input: ShoppingInput) {
+// Fetches one shopping list with its items, or null if it is not the user's.
+export async function getShoppingList(id: string) {
   const userId = await requireUserId();
-  const data = shoppingSchema.parse(input);
+  return prisma.shoppingList.findFirst({
+    where: { id, userId },
+    include: { items: { orderBy: { createdAt: "asc" } } },
+  });
+}
+
+// Creates a list and returns it so the UI can open its (empty) detail.
+export async function createShoppingList(input: ShoppingListInput) {
+  const userId = await requireUserId();
+  const data = shoppingListSchema.parse(input);
+  const list = await prisma.shoppingList.create({
+    data: { userId, title: data.title.trim(), category: data.category },
+  });
+  revalidateShopping(list.id);
+  return list;
+}
+
+// Renames a list, scoped to the current user.
+export async function renameShoppingList(id: string, title: string) {
+  const userId = await requireUserId();
+  const clean = title.trim();
+  if (!clean) return;
+  await prisma.shoppingList.updateMany({ where: { id, userId }, data: { title: clean } });
+  revalidateShopping(id);
+}
+
+// Deletes a list and its items (cascade), scoped to the current user.
+export async function deleteShoppingList(id: string) {
+  const userId = await requireUserId();
+  await prisma.shoppingList.deleteMany({ where: { id, userId } });
+  revalidateShopping();
+}
+
+// Adds an item to a list. The category comes from the list, not the item.
+export async function createShoppingItem(listId: string, input: ShoppingItemInput) {
+  const userId = await requireUserId();
+  const data = shoppingItemSchema.parse(input);
+  const list = await prisma.shoppingList.findFirst({ where: { id: listId, userId } });
+  if (!list) throw new Error("List not found");
   await prisma.shoppingItem.create({
     data: {
       userId,
+      listId,
       name: data.name.trim(),
       price: randToCents(data.price),
-      category: data.category,
       quantity: data.quantity,
     },
   });
-  revalidateMoney();
+  revalidateShopping(listId);
 }
 
 // Moves an item between to-buy and the basket.
@@ -52,57 +98,57 @@ export async function toggleBought(id: string) {
     where: { id, userId },
     data: { bought: !item.bought },
   });
-  revalidateMoney();
+  revalidateShopping(item.listId);
 }
 
 // Sets an item's quantity, floored at 1.
 export async function setQuantity(id: string, quantity: number) {
   const userId = await requireUserId();
+  const item = await prisma.shoppingItem.findFirst({ where: { id, userId } });
+  if (!item) return;
   await prisma.shoppingItem.updateMany({
     where: { id, userId },
     data: { quantity: Math.max(1, Math.trunc(quantity)) },
   });
-  revalidateMoney();
+  revalidateShopping(item.listId);
 }
 
-// Removes an item from the list.
+// Removes an item from a list.
 export async function deleteShoppingItem(id: string) {
   const userId = await requireUserId();
+  const item = await prisma.shoppingItem.findFirst({ where: { id, userId } });
+  if (!item) return;
   await prisma.shoppingItem.deleteMany({ where: { id, userId } });
-  revalidateMoney();
+  revalidateShopping(item.listId);
 }
 
-// Logs the basket (bought items) to the transaction log as one expense per
-// category, dated today, then clears those items from the list. Keeps the log
-// and the spending charts category-honest.
-export async function logBasketAsExpense() {
+// Logs a list's basket (bought items) as one expense in the list's category,
+// dated today and described with the list title, then clears those items. A list
+// is single-category, so it is always one clean transaction.
+export async function logListAsExpense(listId: string) {
   const userId = await requireUserId();
-  const basket = await prisma.shoppingItem.findMany({
-    where: { userId, bought: true },
+  const list = await prisma.shoppingList.findFirst({
+    where: { id: listId, userId },
+    include: { items: { where: { bought: true } } },
   });
-  if (basket.length === 0) return;
+  if (!list || list.items.length === 0) return;
 
-  const groups = new Map<string, { total: number; count: number }>();
-  for (const item of basket) {
-    const g = groups.get(item.category) ?? { total: 0, count: 0 };
-    g.total += item.price * item.quantity;
-    g.count += 1;
-    groups.set(item.category, g);
-  }
-
+  const total = list.items.reduce((sum, i) => sum + i.price * i.quantity, 0);
+  const count = list.items.length;
   const date = dayToDate(dateToDay(new Date()));
-  await prisma.transaction.createMany({
-    data: Array.from(groups, ([category, g]) => ({
+
+  await prisma.transaction.create({
+    data: {
       userId,
       type: "expense",
-      amount: g.total,
-      category,
-      description: `${category} shop · ${g.count} ${g.count === 1 ? "item" : "items"}`,
+      amount: total,
+      category: list.category,
+      description: `${list.title} · ${count} ${count === 1 ? "item" : "items"}`,
       date,
-    })),
+    },
   });
-  await prisma.shoppingItem.deleteMany({ where: { userId, bought: true } });
+  await prisma.shoppingItem.deleteMany({ where: { userId, listId, bought: true } });
 
-  revalidateMoney();
+  revalidateShopping(listId);
   revalidatePath("/money/transactions");
 }
