@@ -27,6 +27,8 @@ model User {
   shoppingItems   ShoppingItem[]
   wishlistCollections WishlistCollection[]
   wishlistItems   WishlistItem[]
+  documents       Document[]
+  literature      Literature[]
   createdAt       DateTime         @default(now())
 }
 
@@ -158,6 +160,41 @@ model WishlistItem {
   user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime           @default(now())
   updatedAt    DateTime           @updatedAt
+}
+
+// A PIN-protected vault document. The file lives in Cloudinary; url is the
+// secure delivery URL and publicId is kept for deletion.
+model Document {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  category  String
+  url       String
+  publicId  String
+  format    String?
+  bytes     Int?
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// A literature review entry. Either an uploaded PDF (fileUrl + publicId in
+// Cloudinary) or an external link (url). status is "to-read"/"reading"/"read".
+model Literature {
+  id        String   @id @default(cuid())
+  userId    String
+  title     String
+  authors   String   @default("")
+  year      Int?
+  status    String   @default("to-read")
+  url       String?
+  fileUrl   String?
+  publicId  String?
+  notes     String   @default("")
+  tags      String[] @default([])
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Account {
